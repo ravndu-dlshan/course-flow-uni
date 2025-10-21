@@ -1,7 +1,16 @@
-import { Link } from 'react-router-dom';
-import { GraduationCap, Menu } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { GraduationCap, Menu, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface NavbarProps {
   variant?: 'default' | 'dashboard';
@@ -9,6 +18,13 @@ interface NavbarProps {
 
 export const Navbar = ({ variant = 'default' }: NavbarProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <nav className="border-b bg-card">
@@ -28,9 +44,31 @@ export const Navbar = ({ variant = 'default' }: NavbarProps) => {
                 <Link to="/catalog" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
                   Courses
                 </Link>
-                <Link to="/login" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                  <Button>Login</Button>
-                </Link>
+                {user && profile ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="gap-2">
+                        <User className="h-4 w-4" />
+                        {profile.full_name || profile.email}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate(profile.role === 'student' ? '/student' : '/admin')}>
+                        Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link to="/login">
+                    <Button>Login</Button>
+                  </Link>
+                )}
               </div>
 
               <button
@@ -40,6 +78,18 @@ export const Navbar = ({ variant = 'default' }: NavbarProps) => {
                 <Menu className="h-6 w-6" />
               </button>
             </>
+          )}
+
+          {variant === 'dashboard' && user && profile && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground hidden md:block">
+                {profile.full_name || profile.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           )}
         </div>
 
@@ -51,9 +101,20 @@ export const Navbar = ({ variant = 'default' }: NavbarProps) => {
             <Link to="/catalog" className="block py-2 text-sm font-medium text-foreground hover:text-primary">
               Courses
             </Link>
-            <Link to="/login" className="block py-2 text-sm font-medium text-foreground hover:text-primary">
-              Login
-            </Link>
+            {user && profile ? (
+              <>
+                <Link to={profile.role === 'student' ? '/student' : '/admin'} className="block py-2 text-sm font-medium text-foreground hover:text-primary">
+                  Dashboard
+                </Link>
+                <button onClick={handleSignOut} className="block py-2 text-sm font-medium text-red-600 w-full text-left">
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link to="/login" className="block py-2 text-sm font-medium text-foreground hover:text-primary">
+                Login
+              </Link>
+            )}
           </div>
         )}
       </div>

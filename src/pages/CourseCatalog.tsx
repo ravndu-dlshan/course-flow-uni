@@ -1,20 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { CourseCard } from '@/components/CourseCard';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockCourses } from '@/data/mockData';
 import { Search } from 'lucide-react';
+import { courseService } from '@/services/courseService';
+import { Course } from '@/types';
+import { toast } from 'sonner';
 
 const CourseCatalog = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [creditFilter, setCreditFilter] = useState('all');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const departments = Array.from(new Set(mockCourses.map(c => c.department)));
+  useEffect(() => {
+    loadCourses();
+  }, []);
 
-  const filteredCourses = mockCourses.filter(course => {
+  const loadCourses = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await courseService.getAllCourses();
+      if (error) throw error;
+      if (data) setCourses(data);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load courses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const departments = Array.from(new Set(courses.map(c => c.department)));
+
+  const filteredCourses = courses.filter(course => {
     const matchesSearch = searchQuery === '' || 
       course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -25,6 +46,20 @@ const CourseCatalog = () => {
 
     return matchesSearch && matchesDepartment && matchesCredits;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Loading courses...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -79,14 +114,14 @@ const CourseCatalog = () => {
           {/* Results */}
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
-              Showing {filteredCourses.length} of {mockCourses.length} courses
+              Showing {filteredCourses.length} of {courses.length} courses
             </p>
           </div>
 
           {/* Course Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => (
-              <CourseCard key={course.id} course={course} />
+              <CourseCard key={course.id} course={course} onEnrollmentChange={loadCourses} />
             ))}
           </div>
 

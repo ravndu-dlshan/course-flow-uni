@@ -1,24 +1,54 @@
+import { useState } from 'react';
 import { Course } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Users, Calendar, Award } from 'lucide-react';
 import { toast } from 'sonner';
+import { enrollmentService } from '@/services/enrollmentService';
 
 interface CourseCardProps {
   course: Course;
   enrolled?: boolean;
+  onEnrollmentChange?: () => void;
 }
 
-export const CourseCard = ({ course, enrolled = false }: CourseCardProps) => {
+export const CourseCard = ({ course, enrolled = false, onEnrollmentChange }: CourseCardProps) => {
+  const [loading, setLoading] = useState(false);
   const availableSeats = course.totalSeats - course.enrolledSeats;
   const isFull = availableSeats <= 0;
 
-  const handleEnroll = () => {
-    toast.success(`Successfully enrolled in ${course.code}!`);
+  const handleEnroll = async () => {
+    setLoading(true);
+    try {
+      const { error } = await enrollmentService.enrollInCourse(course.id);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(`Successfully enrolled in ${course.code}!`);
+        if (onEnrollmentChange) onEnrollmentChange();
+      }
+    } catch (error) {
+      toast.error('Failed to enroll in course');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUnenroll = () => {
-    toast.success(`Dropped ${course.code}`);
+  const handleUnenroll = async () => {
+    setLoading(true);
+    try {
+      const { error } = await enrollmentService.dropCourse(course.id);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(`Dropped ${course.code}`);
+        if (onEnrollmentChange) onEnrollmentChange();
+      }
+    } catch (error) {
+      toast.error('Failed to drop course');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,18 +86,19 @@ export const CourseCard = ({ course, enrolled = false }: CourseCardProps) => {
         {!enrolled ? (
           <Button 
             className="w-full mt-4" 
-            disabled={isFull}
+            disabled={isFull || loading}
             onClick={handleEnroll}
           >
-            {isFull ? 'Full' : 'Enroll'}
+            {loading ? 'Enrolling...' : isFull ? 'Full' : 'Enroll'}
           </Button>
         ) : (
           <Button 
             variant="outline" 
             className="w-full mt-4"
             onClick={handleUnenroll}
+            disabled={loading}
           >
-            Drop Course
+            {loading ? 'Dropping...' : 'Drop Course'}
           </Button>
         )}
       </CardContent>

@@ -7,12 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { GraduationCap, BookOpen, Settings } from 'lucide-react';
 import { UserRole } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const roles = [
     { type: 'student' as UserRole, label: 'Student', icon: GraduationCap },
@@ -20,16 +26,38 @@ const Login = () => {
     { type: 'admin' as UserRole, label: 'Admin', icon: Settings },
   ];
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    // Mock login - redirect based on role
-    if (selectedRole === 'student') {
-      navigate('/student');
-    } else if (selectedRole === 'faculty') {
-      navigate('/faculty');
-    } else if (selectedRole === 'admin') {
-      navigate('/admin');
+    try {
+      if (isSignUp) {
+        if (!selectedRole) {
+          toast.error('Please select a role');
+          return;
+        }
+        
+        const { error } = await signUp(email, password, fullName, selectedRole);
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Account created! Please check your email to verify your account.');
+          setIsSignUp(false);
+        }
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Welcome back!');
+          // Navigation will be handled by the auth state change
+          navigate('/');
+        }
+      }
+    } catch (error) {
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,7 +73,7 @@ const Login = () => {
           </CardHeader>
 
           <CardContent>
-            {!selectedRole ? (
+            {!selectedRole && isSignUp ? (
               <div className="space-y-4">
                 <Label>Select Your Role</Label>
                 <div className="grid grid-cols-3 gap-4">
@@ -63,19 +91,48 @@ const Login = () => {
                     );
                   })}
                 </div>
-              </div>
-            ) : (
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="text-center mb-4">
+                <div className="text-center pt-2">
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => setSelectedRole(null)}
-                    className="text-sm text-muted-foreground"
+                    onClick={() => {
+                      setIsSignUp(false);
+                      setSelectedRole(null);
+                    }}
+                    className="text-sm"
                   >
-                    ← Change Role
+                    Already have an account? Sign In
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                {selectedRole && isSignUp && (
+                  <div className="text-center mb-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setSelectedRole(null)}
+                      className="text-sm text-muted-foreground"
+                    >
+                      ← Change Role
+                    </Button>
+                  </div>
+                )}
+
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="John Doe"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -94,23 +151,49 @@ const Login = () => {
                   <Input
                     id="password"
                     type="password"
+                    placeholder={isSignUp ? "Min 6 characters" : ""}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
-                  Sign In as {roles.find(r => r.type === selectedRole)?.label}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                    </span>
+                  ) : (
+                    <>
+                      {isSignUp 
+                        ? `Sign Up as ${selectedRole ? roles.find(r => r.type === selectedRole)?.label : ''}` 
+                        : 'Sign In'}
+                    </>
+                  )}
                 </Button>
 
                 <div className="text-center space-y-2 text-sm">
-                  <a href="#" className="text-primary hover:underline block">
-                    Forgot Password?
-                  </a>
-                  <a href="#" className="text-primary hover:underline block">
-                    Create Account
-                  </a>
+                  {!isSignUp && (
+                    <a href="#" className="text-primary hover:underline block">
+                      Forgot Password?
+                    </a>
+                  )}
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => {
+                      setIsSignUp(!isSignUp);
+                      setSelectedRole(null);
+                      setEmail('');
+                      setPassword('');
+                      setFullName('');
+                    }}
+                    className="text-primary hover:underline"
+                  >
+                    {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+                  </Button>
                 </div>
               </form>
             )}
